@@ -169,6 +169,56 @@ function nextFromKeyStream(deck: Array<Card>): number {
     nextDeck = deckMiddle2.concat(deckTop2).concat(deckBottom2);
 
     // Find output card
+    let countDown = cardValue(nextDeck[0]);
+    let outputCard = nextDeck[countDown];
+
     // "If you hit a joker, don't write anything down and start
     // over again with step 1" - ?????
+    // I'm assuming that means we can just ignore all 53s obtained from the keystream.
+    let outputValue = cardValue(outputCard);
+    if (outputValue < 53) {
+        outputValue = outputValue % 26;
+    }
+
+    return {
+        key: outputValue,
+        deck: nextDeck
+    };
+}
+
+function charToNumber(s) {
+    return s.toUpperCase().charCodeAt(0) - "A".charCodeAt(0) + 1;
+}
+function crypt(text, deck, combiner) {
+    const textNums = text.split("").map(charToNumber);
+    let keystreamNums = [];
+
+    let nextDeck = deck;
+    while (keystreamNums.length < textNums.length) {
+        let update = nextFromKeyStream(nextDeck);
+
+        nextDeck = update.deck;
+        let keystreamNum = update.outputValue;
+
+        if (keystreamNum < 53) {
+            keystreamNums.push(keystreamNum);
+        }
+    }
+
+    let resultNums = [];
+    for (var i = 0; i < textNums.length; i++) {
+        var nextNum = combiner(textNums[i], keystreamNums[i]) % 26;
+        // 1-26, not 0-25
+        resultNums.push(nextNum || 26);
+    }
+
+    return resultNums.map((n) -> String.fromCharCode(n)).join("");
+}
+
+function encrypt(text, deck) {
+    return crypt(text, deck, (a, b) -> a + b);
+}
+
+function decrypt(text, deck) {
+    return crypt(text, deck, (a, b) -> a - b);
 }
