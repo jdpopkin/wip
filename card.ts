@@ -1,5 +1,3 @@
-// TODO look up order
-// TODO figure out where Jokers fit in
 enum Suit {
     Hearts,
     Clubs,
@@ -28,12 +26,18 @@ enum JokerValue {
     B
 }
 
+const stringToJokerValue = {
+	a: JokerValue.A,
+	A: JokerValue.A,
+	b: JokerValue.B,
+	B: JokerValue.B
+}
+
 const stringToValue = {
     a: Value.Ace,
     j: Value.Jack,
     q: Value.Queen,
     k: Value.King,
-    //1: Value.One,
     2: Value.Two,
     3: Value.Three,
     4: Value.Four,
@@ -42,7 +46,7 @@ const stringToValue = {
     7: Value.Seven,
     8: Value.Eight,
     9: Value.Nine,
-    0: Value.Ten
+    t: Value.Ten
 }
 
 const stringToSuit = {
@@ -57,20 +61,40 @@ const stringToSuit = {
 }
 
 class Card {
-    suit: Suit | null;
-    value: Value | null;
-    jokerValue: JokerValue | null;
+	private raw: string;
 
     constructor(raw: string) {
-        if (raw.toLowerCase() === "a") {
-            this.jokerValue = JokerValue.A;
-        } else if (raw.toLowerCase() === "b") {
-            this.jokerValue = JokerValue.B;
-        } else {
-            this.value = stringToValue[raw[0]];
-            this.suit = stringToSuit[raw[1]];
-        }
+		this.raw = raw
     }
+
+	get value(): Value | null {
+		if (this.raw.length === 1) {
+			return null;
+		}
+
+		return stringToValue[this.raw[0].toLowerCase()];
+	}
+
+	get suit(): Suit | null {
+		if (this.raw.length === 1) {
+			return null;
+		}
+
+		let lastChar = this.raw[this.raw.length - 1];
+		return stringToSuit[lastChar];
+	}
+
+	get jokerValue(): JokerValue | null {
+		let lowerCase = this.raw.toLowerCase();
+
+		if (lowerCase === "a") {
+			return JokerValue.A;
+		} else if (lowerCase === "b") {
+			return JokerValue.B;
+		} else {
+			return null;
+		}
+	}
 }
 
 function parseCards(cards: Array<string>): Array<Card> {
@@ -92,9 +116,9 @@ function swap(deck: Array<Card>, a: number, b: number) {
     deck[a] = deck[b];
     deck[b] = aVal;
 }
-function updateJokerPosition(deck: Array<card>, jokerType: string) {
+function updateJokerPosition(deck: Array<Card>, jokerType: JokerValue) {
     // Update big joker position
-    let initialJokerIndex = deck.findIndex((card) => card.jokeValue === jokerType);
+    let initialJokerIndex = deck.findIndex((card) => card.jokerValue === jokerType);
     if (initialJokerIndex === deck.length) {
         // Move joker from back to just below front
         const joker = deck.pop();
@@ -121,7 +145,7 @@ function findNthIndex(arr, n, func) {
 }
 
 function cardValue(card: Card): number {
-    if (card.jokerValue) {
+    if (card.jokerValue !== null) {
         return 53;
     }
 
@@ -141,20 +165,21 @@ function cardValue(card: Card): number {
     return suitValue + numericValue;
 }
 
-// Actually, return an object?
-function nextFromKeyStream(deck: Array<Card>): number {
-    var nextDeck = deck.slice();
+interface Result {
+	key: number,
+	deck: Card[]
+}
+function nextFromKeyStream(deck: Array<Card>): Result {
+	var nextDeck: Array<Card> = deck.slice();
 
     // Update joker positions. Big once, little twice.
-    updateJokerPosition(nextDeck, "a");
-    updateJokerPosition(nextDeck, "b");
-    updateJokerPosition(nextDeck, "b");
+    updateJokerPosition(nextDeck, JokerValue.A);
+    updateJokerPosition(nextDeck, JokerValue.B);
+    updateJokerPosition(nextDeck, JokerValue.B);
 
     // Triple cut
-    // Extract this function?
-    // Definitely extract Card.isJoker
-    let firstJokerIndex = nextDeck.findIndex((card) => card.jokeValue != null);
-    let secondJokerIndex = findNthIndex(nextDeck, 2, (card) => card.jokeValue != null);
+    let firstJokerIndex = nextDeck.findIndex((card) => card.jokerValue != null);
+    let secondJokerIndex = findNthIndex(nextDeck, 2, (card) => card.jokerValue != null);
     const deckTop = nextDeck.slice(0, firstJokerIndex);
     const deckMiddle = nextDeck.slice(firstJokerIndex, secondJokerIndex + 1);
     const deckBottom = nextDeck.slice(secondJokerIndex + 1);
@@ -173,7 +198,7 @@ function nextFromKeyStream(deck: Array<Card>): number {
     let outputCard = nextDeck[countDown];
 
     // "If you hit a joker, don't write anything down and start
-    // over again with step 1" - ?????
+    // over again with step 1"
     // I'm assuming that means we can just ignore all 53s obtained from the keystream.
     let outputValue = cardValue(outputCard);
     if (outputValue < 53) {
@@ -189,6 +214,11 @@ function nextFromKeyStream(deck: Array<Card>): number {
 function charToNumber(s) {
     return s.toUpperCase().charCodeAt(0) - "A".charCodeAt(0) + 1;
 }
+function numberToChar(n) {
+	let charCode = n - 1 + "A".charCodeAt(0)
+    return String.fromCharCode(charCode);
+}
+
 function crypt(text, deck, combiner) {
     const textNums = text.split("").map(charToNumber);
     let keystreamNums = [];
@@ -198,7 +228,7 @@ function crypt(text, deck, combiner) {
         let update = nextFromKeyStream(nextDeck);
 
         nextDeck = update.deck;
-        let keystreamNum = update.outputValue;
+        let keystreamNum = update.key;
 
         if (keystreamNum < 53) {
             keystreamNums.push(keystreamNum);
@@ -209,16 +239,35 @@ function crypt(text, deck, combiner) {
     for (var i = 0; i < textNums.length; i++) {
         var nextNum = combiner(textNums[i], keystreamNums[i]) % 26;
         // 1-26, not 0-25
-        resultNums.push(nextNum || 26);
+		nextNum = nextNum || 26;
+		// Rotate numbers below zero
+		if (nextNum < 0) {
+			nextNum += 26;
+		}
+
+        resultNums.push(nextNum);
     }
 
-    return resultNums.map((n) -> String.fromCharCode(n)).join("");
+    return resultNums.map(numberToChar).join("");
 }
 
 function encrypt(text, deck) {
-    return crypt(text, deck, (a, b) -> a + b);
+    return crypt(text, deck, (a, b) => a + b);
 }
 
 function decrypt(text, deck) {
-    return crypt(text, deck, (a, b) -> a - b);
+    return crypt(text, deck, (a, b) => a - b);
+}
+
+function cryptMain(text, deckText, func) {
+	let deckStrings = deckText.split(/\,?\s+/);
+	let deck = parseCards(deckStrings);
+
+	return func(text, deck);
+}
+function encryptMain(text, deckText) {
+	return cryptMain(text, deckText, encrypt);
+}
+function decryptMain(text, deckText) {
+	return cryptMain(text, deckText, decrypt);
 }
