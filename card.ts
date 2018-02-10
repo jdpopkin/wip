@@ -61,7 +61,7 @@ const stringToSuit = {
 }
 
 class Card {
-	private raw: string;
+	raw: string;
 
     constructor(raw: string) {
 		this.raw = raw
@@ -219,7 +219,16 @@ function numberToChar(n) {
     return String.fromCharCode(charCode);
 }
 
-function crypt(text, deck, combiner) {
+class CryptResult {
+	text: string;
+	deck: Array<Card>;
+
+	constructor(text: string, deck: Array<Card>) {
+		this.text = text;
+		this.deck = deck;
+	}
+}
+function crypt(text, deck, combiner): CryptResult {
     const textNums = text.split("").map(charToNumber);
     let keystreamNums = [];
 
@@ -248,7 +257,9 @@ function crypt(text, deck, combiner) {
         resultNums.push(nextNum);
     }
 
-    return resultNums.map(numberToChar).join("");
+    const outputText = resultNums.map(numberToChar).join("");
+
+	return new CryptResult(outputText, nextDeck);
 }
 
 function encrypt(text, deck) {

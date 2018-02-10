@@ -6,9 +6,10 @@ document.addEventListener("DOMContentLoaded", function() {
 		let ciphertext = (<HTMLInputElement>document.getElementById("input")).value;
 		let deck = (<HTMLInputElement>document.getElementById("deck")).value;
 
-		let decrypted = decryptMain(ciphertext, deck);
+		let result = decryptMain(ciphertext, deck);
 
-		(<HTMLInputElement>document.getElementById("result")).textContent = decrypted;
+		(<HTMLInputElement>document.getElementById("result")).textContent = result.text;
+		(<HTMLInputElement>document.getElementById("result-deck")).textContent = result.deck.map((c) => c.raw);
 	});
 
 	document.getElementById("encrypt").addEventListener("click", function(e) {
@@ -17,8 +18,9 @@ document.addEventListener("DOMContentLoaded", function() {
 		let plaintext = (<HTMLInputElement>document.getElementById("input")).value;
 		let deck = (<HTMLInputElement>document.getElementById("deck")).value;
 
-		let encrypted = encryptMain(plaintext, deck);
+		let result = encryptMain(plaintext, deck);
 
-		(<HTMLInputElement>document.getElementById("result")).textContent = encrypted;
+		(<HTMLInputElement>document.getElementById("result")).textContent = result.text;
+		(<HTMLInputElement>document.getElementById("result-deck")).textContent = result.deck.map((c) => c.raw);
 	});
 });
